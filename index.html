@@ -3,7 +3,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>蕾塞 · 动态立绘 — 你的泪 我的雨季</title>
 <style>
   :root {
@@ -24,23 +24,25 @@
     color: var(--ink);
     font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
     user-select: none;
+    overscroll-behavior: none;
+    touch-action: manipulation;
   }
 
   #stage-wrap {
     position: fixed;
     inset: 0;
-    display: grid;
-    place-items: center;
     overflow: hidden;
     background: var(--night);
   }
 
-  /* 固定逻辑分辨率，JS 只改外层 scale；图像用 2x 高清源 */
+  /* 逻辑分辨率 1422x800；JS scale + 绝对定位居中 */
   #stage {
-    position: relative;
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 1422px;
     height: 800px;
-    transform-origin: center center;
+    transform-origin: top left;
     overflow: hidden;
     background: #000;
   }
@@ -259,6 +261,53 @@
     color: var(--amber);
   }
 
+  #rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    place-items: center;
+    background: rgba(5, 7, 11, 0.94);
+    color: var(--ink);
+    text-align: center;
+  }
+  #rotate-hint.show { display: grid; }
+  #rotate-hint .rotate-card {
+    padding: 32px 28px;
+  }
+  #rotate-hint .phone-icon {
+    width: 42px;
+    height: 72px;
+    margin: 0 auto 18px;
+    border: 2px solid rgba(232, 228, 220, 0.55);
+    border-radius: 8px;
+    animation: phone-tip 1.6s ease-in-out infinite;
+  }
+  #rotate-hint .phone-icon::after {
+    content: "";
+    display: block;
+    width: 6px;
+    height: 6px;
+    margin: 58px auto 0;
+    border-radius: 50%;
+    background: rgba(232, 228, 220, 0.55);
+  }
+  #rotate-hint p {
+    font-family: "Songti SC", "Noto Serif SC", serif;
+    font-size: 22px;
+    letter-spacing: 0.28em;
+    margin-bottom: 10px;
+  }
+  #rotate-hint span {
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    color: rgba(232, 228, 220, 0.62);
+  }
+  @keyframes phone-tip {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+  }
+
   #gate {
     position: fixed;
     inset: 0;
@@ -334,6 +383,14 @@
     </div>
   </div>
 
+  <div id="rotate-hint" aria-hidden="true">
+    <div class="rotate-card">
+      <div class="phone-icon"></div>
+      <p>请横屏观看</p>
+      <span>画面为宽幅构图，横屏更完整</span>
+    </div>
+  </div>
+
   <div id="gate">
     <div class="card">
       <h1>蕾塞 · 动态立绘</h1>
@@ -356,12 +413,49 @@
   const btnRain = document.getElementById("btn-rain");
   const lyricLine = document.getElementById("lyric-line");
 
-  function fitStage() {
-    const s = Math.min(window.innerWidth / 1422, window.innerHeight / 800);
-    stage.style.transform = "scale(" + s + ")";
+  function viewportSize() {
+    const vv = window.visualViewport;
+    return {
+      w: (vv && vv.width) || window.innerWidth || document.documentElement.clientWidth,
+      h: (vv && vv.height) || window.innerHeight || document.documentElement.clientHeight,
+    };
   }
-  window.addEventListener("resize", fitStage);
-  fitStage();
+
+  function isMobilePortrait() {
+    const size = viewportSize();
+    const touch = matchMedia("(pointer: coarse)").matches;
+    return touch && size.h > size.w;
+  }
+
+  function fitStage() {
+    const size = viewportSize();
+    const vw = size.w;
+    const vh = size.h;
+    const s = Math.min(vw / 1422, vh / 800);
+    const sw = 1422 * s;
+    const sh = 800 * s;
+    stage.style.transform = "scale(" + s + ")";
+    stage.style.left = Math.max(0, (vw - sw) / 2) + "px";
+    stage.style.top = Math.max(0, (vh - sh) / 2) + "px";
+  }
+
+  function updateRotateHint() {
+    const hint = document.getElementById("rotate-hint");
+    if (!hint) return;
+    hint.classList.toggle("show", isMobilePortrait());
+  }
+
+  function onViewportChange() {
+    fitStage();
+    updateRotateHint();
+  }
+
+  window.addEventListener("resize", onViewportChange);
+  window.addEventListener("orientationchange", onViewportChange);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", onViewportChange);
+  }
+  onViewportChange();
 
   // —— 雨 ——
   const canvas = document.getElementById("rain");

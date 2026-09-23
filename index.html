@@ -261,53 +261,6 @@
     color: var(--amber);
   }
 
-  #rotate-hint {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    display: none;
-    place-items: center;
-    background: rgba(5, 7, 11, 0.94);
-    color: var(--ink);
-    text-align: center;
-  }
-  #rotate-hint.show { display: grid; }
-  #rotate-hint .rotate-card {
-    padding: 32px 28px;
-  }
-  #rotate-hint .phone-icon {
-    width: 42px;
-    height: 72px;
-    margin: 0 auto 18px;
-    border: 2px solid rgba(232, 228, 220, 0.55);
-    border-radius: 8px;
-    animation: phone-tip 1.6s ease-in-out infinite;
-  }
-  #rotate-hint .phone-icon::after {
-    content: "";
-    display: block;
-    width: 6px;
-    height: 6px;
-    margin: 58px auto 0;
-    border-radius: 50%;
-    background: rgba(232, 228, 220, 0.55);
-  }
-  #rotate-hint p {
-    font-family: "Songti SC", "Noto Serif SC", serif;
-    font-size: 22px;
-    letter-spacing: 0.28em;
-    margin-bottom: 10px;
-  }
-  #rotate-hint span {
-    font-size: 12px;
-    letter-spacing: 0.16em;
-    color: rgba(232, 228, 220, 0.62);
-  }
-  @keyframes phone-tip {
-    0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(90deg); }
-  }
-
   #gate {
     position: fixed;
     inset: 0;
@@ -383,14 +336,6 @@
     </div>
   </div>
 
-  <div id="rotate-hint" aria-hidden="true">
-    <div class="rotate-card">
-      <div class="phone-icon"></div>
-      <p>请横屏观看</p>
-      <span>画面为宽幅构图，横屏更完整</span>
-    </div>
-  </div>
-
   <div id="gate">
     <div class="card">
       <h1>蕾塞 · 动态立绘</h1>
@@ -421,33 +366,26 @@
     };
   }
 
-  function isMobilePortrait() {
-    const size = viewportSize();
-    const touch = matchMedia("(pointer: coarse)").matches;
-    return touch && size.h > size.w;
-  }
-
+  // 铺满整屏（cover）：放大到宽高都盖住视口，允许轻微裁边，不再留黑边/只显示半幅
+  // 裁切锚点偏向人物（画面右侧少女），避免手机竖屏把人裁掉
   function fitStage() {
     const size = viewportSize();
     const vw = size.w;
     const vh = size.h;
-    const s = Math.min(vw / 1422, vh / 800);
+    const s = Math.max(vw / 1422, vh / 800);
     const sw = 1422 * s;
     const sh = 800 * s;
+    const ax = 0.68;
+    const ay = 0.46;
+    let left = vw / 2 - ax * sw;
+    let top = vh / 2 - ay * sh;
     stage.style.transform = "scale(" + s + ")";
-    stage.style.left = Math.max(0, (vw - sw) / 2) + "px";
-    stage.style.top = Math.max(0, (vh - sh) / 2) + "px";
-  }
-
-  function updateRotateHint() {
-    const hint = document.getElementById("rotate-hint");
-    if (!hint) return;
-    hint.classList.toggle("show", isMobilePortrait());
+    stage.style.left = left + "px";
+    stage.style.top = top + "px";
   }
 
   function onViewportChange() {
     fitStage();
-    updateRotateHint();
   }
 
   window.addEventListener("resize", onViewportChange);

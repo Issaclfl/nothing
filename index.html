@@ -1,0 +1,487 @@
+﻿<!-- AI生成 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>蕾塞 · 动态立绘 — 你的泪 我的雨季</title>
+<style>
+  :root {
+    --ink: #e8e4dc;
+    --ink-dim: rgba(232, 228, 220, 0.62);
+    --night: #07090d;
+    --amber: #f0b429;
+    --skin: #b4b4b6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--night);
+    color: var(--ink);
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    user-select: none;
+  }
+
+  #stage-wrap {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: var(--night);
+  }
+
+  /* 固定逻辑分辨率，JS 只改外层 scale；图像用 2x 高清源 */
+  #stage {
+    position: relative;
+    width: 1422px;
+    height: 800px;
+    transform-origin: center center;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* 统一在 scene 上调色，避免叠层二次滤镜导致发虚 */
+  #scene {
+    position: absolute;
+    inset: 0;
+    filter: contrast(1.1) saturate(1.06) brightness(1.04);
+  }
+
+  .bg {
+    position: absolute;
+    inset: 0;
+    width: 1422px;
+    height: 800px;
+    object-fit: cover;
+    image-rendering: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .shade {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 95% 85% at 35% 55%, transparent 48%, rgba(6, 8, 12, 0.2) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* —— 风动层：硬边透明抠图，禁止柔光 mask（白圈元凶） —— */
+  #alive {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    /* 不加 breath/scale：任何整体缩放都会让叠层相对底图错位，叠出白斑 */
+  }
+
+  .wind-layer {
+    position: absolute;
+    overflow: visible;
+    will-change: transform;
+  }
+
+  .wind-layer img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: auto;
+    pointer-events: none;
+  }
+
+  /* 左外侧发 */
+  .hair-left {
+    left: 748px; top: 145px; width: 175px; height: 430px;
+    transform-origin: 78% 10%;
+    animation: swayL 3.8s ease-in-out infinite;
+  }
+
+  /* 仅头顶刘海（y 到 237，远离眼睛） */
+  .hair-bang-top {
+    left: 885px; top: 92px; width: 290px; height: 145px;
+    transform-origin: 50% 12%;
+    animation: swayR 3.2s ease-in-out infinite;
+  }
+
+  /* 右侧波浪发 */
+  .hair-right {
+    left: 1108px; top: 155px; width: 200px; height: 470px;
+    transform-origin: 15% 10%;
+    animation: swayR 4.1s ease-in-out infinite 0.2s;
+  }
+
+  /* 衣 */
+  .cloth-sleeve {
+    left: 745px; top: 525px; width: 230px; height: 275px;
+    transform-origin: 88% 6%;
+    animation: swayL 4.6s ease-in-out infinite 0.5s;
+  }
+  .cloth-frill {
+    left: 865px; top: 500px; width: 270px; height: 240px;
+    transform-origin: 50% 0%;
+    animation: flutter 3.6s ease-in-out infinite;
+  }
+  .cloth-bow {
+    left: 1055px; top: 515px; width: 260px; height: 285px;
+    transform-origin: 12% 6%;
+    animation: swayR 3.9s ease-in-out infinite 0.65s;
+  }
+
+  /* 幅度加大：位移 + 旋转，但仍然克制，避免像布偶 */
+  @keyframes swayL {
+    0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+    22% { transform: translate(-9px, 3px) rotate(-2.8deg); }
+    48% { transform: translate(-3px, 1px) rotate(-0.8deg); }
+    72% { transform: translate(7px, -2px) rotate(2.2deg); }
+  }
+  @keyframes swayR {
+    0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+    25% { transform: translate(10px, 3px) rotate(3.1deg); }
+    55% { transform: translate(3px, 0px) rotate(0.9deg); }
+    78% { transform: translate(-7px, -3px) rotate(-2.4deg); }
+  }
+  @keyframes flutter {
+    0%, 100% { transform: translate(0, 0) rotate(0deg) scaleY(1); }
+    30% { transform: translate(-4px, 5px) rotate(-1.4deg) scaleY(1.015); }
+    65% { transform: translate(5px, 2px) rotate(1.6deg) scaleY(0.99); }
+  }
+
+  /* —— 雨 —— */
+  #rain {
+    position: absolute;
+    inset: 0;
+    width: 1422px;
+    height: 800px;
+    z-index: 4;
+    pointer-events: none;
+    opacity: 0.95;
+  }
+
+  .bloom {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: screen;
+  }
+  .bloom.red {
+    left: 145px; top: 148px; width: 56px; height: 56px;
+    background: radial-gradient(circle, rgba(220, 70, 70, 0.55), transparent 70%);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  .bloom.red2 {
+    left: 815px; top: 155px; width: 46px; height: 46px;
+    background: radial-gradient(circle, rgba(220, 70, 70, 0.42), transparent 70%);
+    animation: pulse 3.6s ease-in-out infinite 0.5s;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.65; }
+    50% { opacity: 1; }
+  }
+
+  /* —— UI —— */
+  #ui {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .title-block {
+    position: absolute;
+    left: 48px;
+    bottom: 52px;
+    max-width: 440px;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
+  }
+  .title-block .song {
+    font-family: "Songti SC", "Noto Serif SC", "SimSun", serif;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+  }
+  .title-block .meta {
+    margin-top: 8px;
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+  }
+  .title-block .line {
+    margin-top: 16px;
+    font-family: "Songti SC", "Noto Serif SC", serif;
+    font-size: 15px;
+    line-height: 1.85;
+    color: rgba(232, 228, 220, 0.78);
+    min-height: 3.6em;
+    transition: opacity 0.45s;
+  }
+
+  .badge {
+    position: absolute;
+    top: 26px;
+    left: 34px;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    color: rgba(232, 228, 220, 0.5);
+    border: 1px solid rgba(232, 228, 220, 0.2);
+    padding: 6px 12px;
+  }
+
+  .controls {
+    position: absolute;
+    right: 34px;
+    bottom: 36px;
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+  }
+
+  .btn {
+    appearance: none;
+    border: 1px solid rgba(232, 228, 220, 0.3);
+    background: rgba(8, 10, 14, 0.55);
+    color: var(--ink);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    padding: 10px 18px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: 0.2s;
+  }
+  .btn:hover {
+    border-color: rgba(240, 180, 41, 0.75);
+    color: var(--amber);
+  }
+
+  #gate {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: rgba(5, 7, 11, 0.82);
+    backdrop-filter: blur(8px);
+    transition: opacity 0.65s ease, visibility 0.65s;
+  }
+  #gate.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #gate .card { text-align: center; padding: 40px 48px; }
+  #gate h1 {
+    font-family: "Songti SC", "Noto Serif SC", serif;
+    font-size: 34px;
+    letter-spacing: 0.24em;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  #gate p {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+    margin-bottom: 28px;
+  }
+  #gate .hint {
+    margin-top: 18px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: rgba(232, 228, 220, 0.38);
+  }
+</style>
+</head>
+<body>
+<p data-aigc-mark="1" style="margin:0 0 8px;font-size:10px;line-height:1.3;color:#6b6560;font-weight:400;">AI生成</p>
+
+  <div id="stage-wrap">
+    <div id="stage">
+      <div id="scene">
+        <img class="bg" src="assets/bg.png" alt="雨夜 · 蕾塞" draggable="false" />
+        <div class="shade"></div>
+        <div class="bloom red"></div>
+        <div class="bloom red2"></div>
+
+        <div id="alive">
+          <div class="wind-layer hair-left"><img src="assets/hair_left.png" alt="" draggable="false" /></div>
+          <div class="wind-layer hair-bang-top"><img src="assets/hair_bang_top.png" alt="" draggable="false" /></div>
+          <div class="wind-layer hair-right"><img src="assets/hair_right.png" alt="" draggable="false" /></div>
+          <div class="wind-layer cloth-sleeve"><img src="assets/cloth_sleeve.png" alt="" draggable="false" /></div>
+          <div class="wind-layer cloth-frill"><img src="assets/cloth_frill.png" alt="" draggable="false" /></div>
+          <div class="wind-layer cloth-bow"><img src="assets/cloth_bow.png" alt="" draggable="false" /></div>
+        </div>
+
+        <canvas id="rain" width="1422" height="800"></canvas>
+      </div>
+
+      <div id="ui">
+        <div class="badge">LIVE PORTRAIT</div>
+        <div class="title-block">
+          <div class="song">你的泪 我的雨季</div>
+          <div class="meta">SETO · 动态立绘</div>
+          <div class="line" id="lyric-line">雨下在街上，也下在眼眶里。</div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="btn-play" type="button">暂停</button>
+          <button class="btn" id="btn-rain" type="button">雨幕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gate">
+    <div class="card">
+      <h1>蕾塞 · 动态立绘</h1>
+      <p>发丝衣角随风 · 你的泪 我的雨季</p>
+      <button class="btn" id="btn-enter" type="button">进入雨夜</button>
+      <div class="hint">点击后音乐自动播放</div>
+    </div>
+  </div>
+
+  <audio id="bgm" src="assets/bgm.mp3" loop preload="auto"></audio>
+
+<script>
+(function () {
+  const stage = document.getElementById("stage");
+  const alive = document.getElementById("alive");
+  const bgm = document.getElementById("bgm");
+  const gate = document.getElementById("gate");
+  const btnEnter = document.getElementById("btn-enter");
+  const btnPlay = document.getElementById("btn-play");
+  const btnRain = document.getElementById("btn-rain");
+  const lyricLine = document.getElementById("lyric-line");
+
+  function fitStage() {
+    const s = Math.min(window.innerWidth / 1422, window.innerHeight / 800);
+    stage.style.transform = "scale(" + s + ")";
+  }
+  window.addEventListener("resize", fitStage);
+  fitStage();
+
+  // —— 雨 ——
+  const canvas = document.getElementById("rain");
+  const ctx = canvas.getContext("2d");
+  let rainOn = true;
+  const drops = [];
+  for (let i = 0; i < 280; i++) {
+    drops.push({
+      x: Math.random() * 1422,
+      y: Math.random() * 800,
+      len: 18 + Math.random() * 28,
+      sp: 14 + Math.random() * 16,
+      a: 0.22 + Math.random() * 0.4,
+    });
+  }
+
+  function drawRain() {
+    ctx.clearRect(0, 0, 1422, 800);
+    if (!rainOn) {
+      requestAnimationFrame(drawRain);
+      return;
+    }
+    ctx.lineWidth = 1.15;
+    for (const d of drops) {
+      ctx.strokeStyle = "rgba(210, 222, 240," + d.a + ")";
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - 2.2, d.y + d.len);
+      ctx.stroke();
+      d.y += d.sp;
+      d.x -= 0.55;
+      if (d.y > 800) {
+        d.y = -30;
+        d.x = Math.random() * 1422;
+      }
+    }
+    requestAnimationFrame(drawRain);
+  }
+  requestAnimationFrame(drawRain);
+
+  // —— 歌词 ——
+  const lyrics = [
+    "雨下在街上，也下在眼眶里。",
+    "你的泪，落成我的雨季。",
+    "红灯亮着，像没说完的话。",
+    "风穿过发梢，像谁轻轻碰了一下。",
+    "积水映着橱窗，也映着迟疑。",
+    "伞沿滴答，数着没有寄出的心事。",
+    "霓虹泡在水里，名字就散了。",
+    "站牌还亮着，末班车没有来。",
+    "我把心事叠进雨声里，一层，又一层。",
+    "你哭过的那晚，整座城都在漏雨。",
+    "睫毛沾了潮气，眨一下，就是一场雨。",
+    "Seto · 让旋律替你撑伞。",
+  ];
+  let li = 0;
+  setInterval(() => {
+    li = (li + 1) % lyrics.length;
+    lyricLine.style.opacity = 0;
+    setTimeout(() => {
+      lyricLine.textContent = lyrics[li];
+      lyricLine.style.opacity = 1;
+    }, 420);
+  }, 5400);
+
+  // —— 音乐 ——
+  let started = false;
+  function playMusic() {
+    bgm.volume = 0.85;
+    const p = bgm.play();
+    if (p && p.catch) p.catch(() => {});
+    btnPlay.textContent = "暂停";
+    started = true;
+  }
+  function tryAutoplay() {
+    bgm.volume = 0.85;
+    const p = bgm.play();
+    if (p && p.then) {
+      p.then(() => {
+        gate.classList.add("hidden");
+        started = true;
+        btnPlay.textContent = "暂停";
+      }).catch(() => {});
+    }
+  }
+  btnEnter.addEventListener("click", () => {
+    gate.classList.add("hidden");
+    playMusic();
+  });
+  window.addEventListener("load", () => {
+    tryAutoplay();
+    setTimeout(tryAutoplay, 250);
+  });
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      if (!started) {
+        playMusic();
+        gate.classList.add("hidden");
+      }
+    },
+    { once: true }
+  );
+  btnPlay.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (bgm.paused) playMusic();
+    else {
+      bgm.pause();
+      btnPlay.textContent = "播放";
+    }
+  });
+  btnRain.addEventListener("click", (e) => {
+    e.stopPropagation();
+    rainOn = !rainOn;
+    btnRain.textContent = rainOn ? "雨幕" : "晴隙";
+  });
+})();
+</script>
+</body>
+</html>
+
+
+

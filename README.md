@@ -1,4 +1,4 @@
-# 蕾塞 · 动态立绘（NFC 雨夜页）
+﻿# 蕾塞 · 动态立绘（NFC 雨夜页）
 
 发丝衣角随风、雨夜街景、自动播放《你的泪 我的雨季》。
 
@@ -31,7 +31,7 @@ git push -u origin main
 3. 仓库 → Settings → Pages → Source 选 `Deploy from a branch`，Branch 选 `main` / `/ (root)`，Save
 4. 等 1–2 分钟，访问：
 
-   `https://isaacifl.github.io/nothing/`
+   `https://issaclfl.github.io/nothing/`
 
    （若 Pages 用户名大小写不同，以仓库 Settings → Pages 显示的 URL 为准）
 
@@ -39,7 +39,7 @@ git push -u origin main
 
 1. 手机安装 NFC 写入类 App（如 NFC Tools）
 2. 写入 **URL / Web Link** 记录：
-   `https://isaacifl.github.io/nothing/`
+   `https://issaclfl.github.io/nothing/`
 3. 贴到卡片/挂饰上，用手机背面一贴即可打开
 
 ## 说明
@@ -47,3 +47,4 @@ git push -u origin main
 - NFC 标签只存网址，不存图片/音乐文件
 - 手机浏览器可能拦截有声自动播放，需点一下「进入雨夜」
 - 请确认音乐与图片仅供个人使用，勿公开传播版权素材
+
